@@ -1,12 +1,10 @@
-# Semantic Annotation Tool for EIS related PDF documents
+# Master Thesis Prototype
 
-It is a web-based semantic annotation tool for PDF documents, focusing on EIS (Enterprise Information Systems) related documents.<br>
-Using this tools one can annotate any text in the form of RDF triples.<br>
-Storing annotations is available in the format of JSON, as pseudo-triples `( {s: {p: [o1, o2]}} )`
+This is a web-based semantic annotation tool for research papers in PDF format.<br>
+This tool allows you to semantically annotate (as RDF triples) text in research papers which is then used for recommending similar papers that the end user might find relevant. 
 
 ## Project Current state
-Following are the working features and ongoing works details.<br>
-For EIS table annotation, the project is in a very early stage.
+This project originates from https://github.com/AKSW/semann and is concurrently developed on https://github.com/saifulnipo/eis-semantic-annotation from where this is forked. Whilst the parallel development under saifulnipo concentrates on annotating tables in PDF, this project concentrates on the further development of the [find similar publications](https://github.com/saifulnipo/eis-semantic-annotation/wiki/Documentation#find-similar-publications) functionality. Eventually the two parallel forks will be merged into https://github.com/AKSW/semann.
 
 ### Currently working features:
 - Load and render a PDF file within half-page and render other half with custom GUI.
@@ -16,15 +14,11 @@ For EIS table annotation, the project is in a very early stage.
 - [Find similar publications](https://github.com/saifulnipo/eis-semantic-annotation/wiki/Documentation#find-similar-publications)
 
 ### Work in progress:
-- Focusing on annotating tables. Which will be mainly EIS related  documents. [Issue](https://github.com/saifulnipo/eis-semantic-annotation/issues/3)
-- Adding rows and column info in terms of the W3C [Data Cube Vocabulary](http://www.w3.org/TR/vocab-data-cube/).  [Issue](https://github.com/saifulnipo/eis-semantic-annotation/issues/2)
+- Further development of [find similar publications](https://github.com/saifulnipo/eis-semantic-annotation/wiki/Documentation#find-similar-publications) functionality.
 
 ## Documentation
-- [Complete Documentation](https://github.com/saifulnipo/eis-semantic-annotation/wiki)
-
-## Javascript Static code analyser
-- [JsLint](http://www.jslint.com/)
-- [JsHint](http://www.jshint.com/)
+- [Base Documentation](https://github.com/saifulnipo/eis-semantic-annotation/wiki)
+- [Current development](https://github.com/jaanatak/eis-semantic-annotation/wiki)
 
 ## Used libraries
 
@@ -32,7 +26,7 @@ For EIS table annotation, the project is in a very early stage.
 [Twitter bootstrap](http://getbootstrap.com/) - used for UI  
 [jQuery](http://jquery.com/) - used for DOM manipulations, required by Twitter bootstrap  
 [Typeahead.js](https://github.com/twitter/typeahead.js) - used for autosuggestion in input boxes  
-[Ranjy](https://code.google.com/p/rangy/) - A cross-browser JavaScript range and selection library.
+[Rangy](https://code.google.com/p/rangy/) - A cross-browser JavaScript range and selection library.
 
 ## Backend Database Used
 - [virtuoso](http://virtuoso.openlinksw.com/)
