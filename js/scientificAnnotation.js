@@ -46,6 +46,10 @@ var scientificAnnotation  = {
         $("#annotateTableButton").bind("click", function () {
             scientificAnnotation.annotateTable();
         });
+	
+	$("#dbLookupButton").bind("click", function () { //jaana test - this should be later bound to onchange event or an existing method below
+            dbLookup.showDataFromDBlookup($('#subjectValueInput').val());
+        });
     },
 
 
