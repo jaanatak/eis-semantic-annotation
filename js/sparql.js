@@ -11,7 +11,7 @@
 
  */
 
-
+"use strict";
 var sparql  = {
 
     SERVER_ADDRESS : "http://localhost:8890/sparql",
@@ -22,7 +22,26 @@ var sparql  = {
     PREFIX_RDFS : "http://www.w3.org/2000/rdf-schema#",
     PREFIX_SEMANN : "http://eis.iai.uni-bonn.de/semann/owl#",
     PREFIX_SEMANNP : "http://eis.iai.uni-bonn.de/semann/property#",
-
+    triple: { //holds triple SPO values to be added into the database
+        "subject": {"uri": null, "label": null},
+        "property": {"uri": null, "label": null},
+        "object": {"uri": null, "label": null},
+        emptyObject: function(tripleObject) {
+            sparql.triple[tripleObject].uri = null;
+            sparql.triple[tripleObject].label = null;
+        },
+        setObject: function(tripleObject, uriValue, labelValue) {
+            sparql.triple[tripleObject].uri = uriValue;
+            sparql.triple[tripleObject].label = labelValue;
+        },
+        empty: function() {
+            this.emptyObject("subject");
+            this.emptyObject("property");
+            this.emptyObject("object");
+        }
+    }, 
+    defaultProperties: [],
+        
     // For showing similar search result, the maximum size of the list
     SIMILAR_RESULT_LIMIT : 10,
 
@@ -88,14 +107,39 @@ var sparql  = {
      *
      * @return void
      */
-    addAnnotation:function(property, subject, object, textStartPos, textEndPos, rangyPage, rangyFragment){
-
+    addAnnotation:function(textStartPos, textEndPos, rangyPage, rangyFragment){
+        //check that the triple is not corrupt
+        if ($('#subjectValueInput').val() != sparql.triple.subject.label || $('#propertyValueInput').val() != sparql.triple.property.label || $('#objectValueInput').val() != sparql.triple.object.label) {
+            var error = "Error! User defined triple values do not match globally stored ones.";
+            if (scientificAnnotation.DEBUG) console.error(error);
+            scientificAnnotation.showErrorMessage(error,true);
+            return false;
+        }
+        if (!sparql.triple.subject.label || !sparql.triple.property.label || !sparql.triple.object.label) {
+            var error = "Error! Some or all of the user defined triple values are missing in the global variable.";
+            if (scientificAnnotation.DEBUG) if (scientificAnnotation.DEBUG) console.error(error);
+            scientificAnnotation.showErrorMessage(error,true);
+            return false;
+        }
+        var defineSubjectType = true;
+        if (!sparql.triple.subject.uri) {
+            defineSubjectType = false;
+        }
+        if (!sparql.triple.property.uri) {
+            var localUri = sparql.PREFIX_SEMANNP + ':' +sparql.camelCase(sparql.triple.property.label, true);
+            sparql.triple.property.uri = localUri;
+        }
+        if (!sparql.triple.object.uri) {
+            var localUri = sparql.PREFIX_SEMANN +sparql.camelCase(sparql.triple.object.label, false);
+            sparql.triple.object.uri = localUri;
+        }
+        
         var currentPage = $('#pageNumber').val();
         var charStart = textStartPos, charEnd = textEndPos,length = (textEndPos - textStartPos);
 	    var fileFragment = '#page='+currentPage+'?char='+charStart+','+charEnd+';length='+length+',UTF-8&rangyPage='+rangyPage+'&rangyFragment='+rangyFragment;
 	    var q = sparql.resource(fileFragment);
-        var camelProp = sparql.camelCase(property);
-        var camelObject = sparql.camelCase(object);
+        var camelProp = sparql.camelCase(sparql.triple.property.label, true);
+        var camelObject = sparql.camelCase(sparql.triple.object.label, false);
 
         var insertQuery =
                 'prefix semann: <'+sparql.PREFIX_SEMANN+'>' +'\n'+
@@ -105,14 +149,19 @@ var sparql  = {
                 'GRAPH <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+
                 '{ ' +'\n'+
                         q.File+' a ' +q.Publication+ '. '+'\n'+
-                        q.File+' ' + q.hasExcerpt + ' '+ q.Excerpt +' .'+'\n'+
-                        q.Excerpt +' ' + q.label + ' "'+subject+'"@en; ' +'\n'+
-                        'semannp:'+camelProp+' semann:'+camelObject+' .'+'\n'+
-                        'semannp:'+camelProp+'  ' + q.label + ' "'+property+'"@en. '+'\n'+
-                        'semann:'+camelObject+' ' + q.label + ' "'+object+'"@en. '+'\n'+
+                        q.File+' ' + q.hasExcerpt + ' '+ q.Excerpt +' .'+'\n';
+        if (defineSubjectType) {
+            insertQuery = insertQuery + q.Excerpt +' a <' +sparql.triple.subject.uri+ '> .' + '\n';
+        }
+        insertQuery = insertQuery +
+                        q.Excerpt +' ' + q.label + ' "'+sparql.triple.subject.label+'"@en; ' +'\n'+
+                        '<'+sparql.triple.property.uri +'> <'+sparql.triple.object.uri+'> .'+'\n'+
+                        '<'+sparql.triple.property.uri+'>  ' + q.label + ' "'+sparql.triple.property.label+'"@en. '+'\n'+
+                        '<'+sparql.triple.object.uri+'> ' + q.label + ' "'+sparql.triple.object.label+'"@en. '+'\n'+
                 '} ' +'\n'+
             '}';
-
+        
+        if (scientificAnnotation.DEBUG) console.log(insertQuery);
         $.ajax({
             type: "GET",
             url: sparql.SERVER_ADDRESS,
@@ -125,7 +174,7 @@ var sparql  = {
             crossDomain: true,
             cache: false,
             success: function(response){
-                sparql.bindAutoCompleteProperty();
+                sparql.bindAutoCompleteProperty(null, null);
                 sparql.bindAutoCompleteObject();
                 scientificAnnotation.hideAnnotationDisplayTable();
                 scientificAnnotation.hideProgressBar();
@@ -140,49 +189,6 @@ var sparql  = {
     },
 
     /**
-     * Provide the data for the auto complete in the property field
-     *
-     * @param searchItem
-     * @returns {Array}
-     */
-    bindAutoCompleteProperty :function(){
-
-	    var q = sparql.resource();
-        var selectQuery = 'SELECT distinct  str(?label) as ?PROPERTY FROM  <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+
-            ' WHERE ' +'\n'+
-            '{ ' +'\n'+
-                '?p ' + q.label + ' ?label ' +'\n'+
-                'FILTER(STRSTARTS(STR(?p), "'+sparql.PREFIX_SEMANNP+'"))' +'\n'+
-            '} ORDER BY fn:lower-case(?PROPERTY) LIMIT '+sparql.AUTO_COMPLETE_RESULT_LIMIT;
-
-        var source = null;
-
-        $.ajax({
-            type: "GET",
-            url: sparql.SERVER_ADDRESS,
-            data: {
-                query: selectQuery,
-                format: "application/json"
-            },
-            async: true,
-            dataType: "jsonp",
-            crossDomain: true,
-            cache: false,
-            success: function(response){
-                source = sparqlResponseParser.parseProperty(response);
-                scientificAnnotation.setAutoComputeDataForPropertyField(source);
-            },
-            error: function(jqXHR, exception){
-                var errorTxt= sparql.getStandardErrorMessage(jqXHR,exception);
-                scientificAnnotation.showErrorMessage(errorTxt);
-            }
-        });
-
-        return source;
-    },
-
-
-    /**
      * Provide the data for the auto complete in the  object field
      *
      * @param searchItem
@@ -190,8 +196,8 @@ var sparql  = {
      */
     bindAutoCompleteObject :function(){
 
-	    var q = sparql.resource();
-        var selectQuery = 'SELECT distinct  str(?label) as ?OBJECT FROM  <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+
+        var q = sparql.resource();
+        var selectQuery = 'SELECT distinct str(?o) as ?OBJECT str(?label) as ?LABEL FROM  <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+
             ' WHERE ' +'\n'+
             '{ ' +'\n'+
                 '?o ' + q.label + ' ?label ' +'\n'+
@@ -212,8 +218,8 @@ var sparql  = {
             crossDomain: true,
             cache: false,
             success: function(response){
-                source = sparqlResponseParser.parseObject(response);
-                scientificAnnotation.setAutoComputeDataForObjectField(source);
+                source = sparqlResponseParser.parseResource(response);
+                scientificAnnotation.setAutoComputeDataForField(source, 'objectValueInput');
             },
             error: function(jqXHR, exception){
                 var errorTxt= sparql.getStandardErrorMessage(jqXHR, exception);
@@ -227,12 +233,75 @@ var sparql  = {
     /**
      * Provide the data for the auto complete in the property field
      *
+     * @param dbpedia.org URI as a subject if it was redefined as a class by the user. 'null' if subject is a literal.
+     * @param URIs of superclasses of the subject class. 'null' if subject is a literal.
+     * @returns {Array} an Array of properties and labels.
+     */
+    bindAutoCompleteProperty :function(selectedSubject, relatedClasses){       
+        var q = sparql.resource();
+        var selectQuery;
+        var getDefaultProperties = false;
+        if (!selectedSubject) getDefaultProperties = true; // local search of non-dpedia properties
+        if (getDefaultProperties) {
+            selectQuery = 'SELECT distinct str(?p) as ?PROPERTY str(?label) as ?LABEL FROM  <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+
+            ' WHERE ' +'\n'+
+            '{ ' +'\n'+
+                '?p ' + q.label + ' ?label ' +'\n'+
+                'FILTER(STRSTARTS(STR(?p), "'+sparql.PREFIX_SEMANNP+'"))' +'\n'+
+            '} ORDER BY fn:lower-case(?PROPERTY) LIMIT '+sparql.AUTO_COMPLETE_RESULT_LIMIT;
+        } else { //used when the user defined the subject as a dbpedia class
+            selectQuery = 'select distinct ?PROPERTY ?LABEL where { ' +'\n'+
+                '{  <' +selectedSubject+ '> ?PROPERTY ?o. } ' +'\n';
+            $.each(relatedClasses, function(i, item) {
+                    selectQuery = selectQuery + 'UNION {  ?PROPERTY rdfs:domain <' +item+ '>. } ' + '\n';
+            });
+            selectQuery = selectQuery + '?PROPERTY rdfs:label ?LABEL. FILTER (lang(?LABEL) = "en")' +'\n'+
+                '}' +'\n'+
+                'ORDER BY fn:lower-case(?PROPERTY) LIMIT '+sparql.AUTO_COMPLETE_RESULT_LIMIT;
+        }
+        if (scientificAnnotation.DEBUG) console.log('Triggering query:\n' +selectQuery);
+        
+        var source = null;
+
+        $.ajax({
+            type: "GET",
+            url: sparql.SERVER_ADDRESS,
+            data: {
+                query: selectQuery,
+                format: "application/json"
+            },
+            async: true,
+            dataType: "jsonp",
+            crossDomain: true,
+            cache: false,
+            success: function(response){
+                source = sparqlResponseParser.parseResource(response);
+                if (getDefaultProperties) sparql.defaultProperties = source;
+                if (source.length > 0) {
+                    scientificAnnotation.setAutoComputeDataForField(source, 'propertyValueInput');
+                } else { //no results, revert to default ones
+                    scientificAnnotation.setAutoComputeDataForField(sparql.defaultProperties);
+                }
+            },
+            error: function(jqXHR, exception){
+                var errorTxt= sparql.getStandardErrorMessage(jqXHR, exception);
+                scientificAnnotation.showErrorMessage(errorTxt);
+            }
+        });
+
+        return source;
+    },
+
+
+    /**
+     * Provide the data for the auto complete in the property field
+     *
      * @param searchItem
      * @returns {Array}
      */
     findSimilarFiles :function(){
 
-	    var q = sparql.resource();
+        var q = sparql.resource();
         var selectQuery =
             ' SELECT ?file ' +'\n'+
                 ' WHERE ' +'\n'+
@@ -291,8 +360,11 @@ var sparql  = {
      * @param str
      * @returns {XML|string|void|*}
      */
-    camelCase :function (str){
-        str     = $.camelCase(str.replace(/[_ ]/g, '-')).replace(/-/g, '');
+    camelCase :function (str, isProperty){
+        str = str.toLowerCase().replace(/ (.)/g, function(match, group1) {
+            return group1.toUpperCase();
+        });
+        if (!isProperty) str = str.charAt(0).toUpperCase() + str.substr(1); //for resources the first letter is in capital
         return  str;
     },
     
@@ -341,7 +413,7 @@ var sparql  = {
         } else {
             errorTxt = errorTxt + '<br>Uncaught Error.\n' + jqXHR.responseText;
         }
-
+        if (scientificAnnotation.DEBUG) console.error(errorTxt);
         return errorTxt;
     }
 };
