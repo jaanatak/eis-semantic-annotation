@@ -63,7 +63,7 @@ var sparql  = {
                 '?prop ' + q.label + ' ?PROPERTY. ' +
                 '?obj ' + q.label + ' ?OBJECT.' +
             '}';
-
+        if (scientificAnnotation.DEBUG) console.log(selectQuery);
         $.ajax({
             type: "GET",
             url: sparql.SERVER_ADDRESS,
@@ -108,25 +108,28 @@ var sparql  = {
      * @return void
      */
     addAnnotation:function(textStartPos, textEndPos, rangyPage, rangyFragment){
+        var isSuccess = true;
         //check that the triple is not corrupt
         if ($('#subjectValueInput').val() != sparql.triple.subject.label || $('#propertyValueInput').val() != sparql.triple.property.label || $('#objectValueInput').val() != sparql.triple.object.label) {
             var error = "Error! User defined triple values do not match globally stored ones.";
             if (scientificAnnotation.DEBUG) console.error(error);
             scientificAnnotation.showErrorMessage(error,true);
-            return false;
+            isSuccess = false;
+            return isSuccess;
         }
         if (!sparql.triple.subject.label || !sparql.triple.property.label || !sparql.triple.object.label) {
             var error = "Error! Some or all of the user defined triple values are missing in the global variable.";
             if (scientificAnnotation.DEBUG) if (scientificAnnotation.DEBUG) console.error(error);
             scientificAnnotation.showErrorMessage(error,true);
-            return false;
+            isSuccess = false;
+            return isSuccess;
         }
         var defineSubjectType = true;
         if (!sparql.triple.subject.uri) {
             defineSubjectType = false;
         }
         if (!sparql.triple.property.uri) {
-            var localUri = sparql.PREFIX_SEMANNP + ':' +sparql.camelCase(sparql.triple.property.label, true);
+            var localUri = sparql.PREFIX_SEMANNP + sparql.camelCase(sparql.triple.property.label, true);
             sparql.triple.property.uri = localUri;
         }
         if (!sparql.triple.object.uri) {
@@ -138,8 +141,6 @@ var sparql  = {
         var charStart = textStartPos, charEnd = textEndPos,length = (textEndPos - textStartPos);
 	    var fileFragment = '#page='+currentPage+'?char='+charStart+','+charEnd+';length='+length+',UTF-8&rangyPage='+rangyPage+'&rangyFragment='+rangyFragment;
 	    var q = sparql.resource(fileFragment);
-        var camelProp = sparql.camelCase(sparql.triple.property.label, true);
-        var camelObject = sparql.camelCase(sparql.triple.object.label, false);
 
         var insertQuery =
                 'prefix semann: <'+sparql.PREFIX_SEMANN+'>' +'\n'+
@@ -181,11 +182,13 @@ var sparql  = {
                 scientificAnnotation.showSuccessMessage('Annotation successfully added');
             },
             error: function(jqXHR, exception){
+                isSuccess = false;
                 var errorTxt= sparql.getStandardErrorMessage(jqXHR ,exception);
                 scientificAnnotation.hideProgressBar();
                 scientificAnnotation.showErrorMessage(errorTxt);
             }
         });
+        return isSuccess;
     },
 
     /**
@@ -276,7 +279,11 @@ var sparql  = {
             cache: false,
             success: function(response){
                 source = sparqlResponseParser.parseResource(response);
-                if (getDefaultProperties) sparql.defaultProperties = source;
+                if (getDefaultProperties) {
+                    sparql.defaultProperties = source;
+                } else {
+                    scientificAnnotation.showResults("Found "+source.length+" related properties.", "propertyCount", true);
+                }
                 if (source.length > 0) {
                     scientificAnnotation.setAutoComputeDataForField(source, 'propertyValueInput');
                 } else { //no results, revert to default ones
@@ -361,11 +368,12 @@ var sparql  = {
      * @returns {XML|string|void|*}
      */
     camelCase :function (str, isProperty){
-        str = str.toLowerCase().replace(/ (.)/g, function(match, group1) {
+        var result = str;
+        result = result.toLowerCase().replace(/ (.)/g, function(match, group1) {
             return group1.toUpperCase();
         });
-        if (!isProperty) str = str.charAt(0).toUpperCase() + str.substr(1); //for resources the first letter is in capital
-        return  str;
+        if (!isProperty) result = result.charAt(0).toUpperCase() + result.substr(1); //for resources the first letter is in capital
+        return  result;
     },
     
     /**

@@ -127,9 +127,9 @@ var dbLookup  = {
             if (scientificAnnotation.DEBUG) console.log(JSON.stringify(fakeResponse, null, 4));
             var message = dbLookup.formatResponse(fakeResponse, displayInElementId);
             if (message) {
-                dbLookup.showResults(message, displayInElementId);
+                scientificAnnotation.showResults(message, displayInElementId);
             } else {
-                dbLookup.showResults("No matches found in DBpedia.org.", displayInElementId, true);
+                scientificAnnotation.showResults("No matches found in DBpedia.org.", displayInElementId, true);
             }
             return;
         }
@@ -163,9 +163,9 @@ var dbLookup  = {
                     }
                     var message = dbLookup.formatResponse(response, displayInElementId);
                     if (message) {
-                        dbLookup.showResults(message, displayInElementId);
+                        scientificAnnotation.showResults(message, displayInElementId);
                     } else {
-                        dbLookup.showResults("No matches found in DBpedia.org.", displayInElementId, true);
+                        scientificAnnotation.showResults("No matches found in DBpedia.org.", displayInElementId, true);
                     }
                     scientificAnnotation.hideProgressBar();
                 },
@@ -298,26 +298,6 @@ var dbLookup  = {
 		return false;
     },
     
-    /**
-     * Display success message
-     * @param message
-     * @param element id where to display the results
-     * @param optional boolean value to define whether to show message temporarily only.
-     * @return void
-     */
-    showResults:function(message, displayInElementId, isHide) {
-        var isHide = isHide || false;
-        var elementID = '#'+displayInElementId;
-        var selector = $(elementID);
-        selector.html(message);
-        selector.fadeIn(1000);
-        if(isHide == true) {
-            selector.delay(1500).fadeOut();
-        }else {
-            selector.show();
-        }
-    },
-
     /**
      * Return the standard error message if the server communication is failed
      *

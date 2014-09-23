@@ -179,7 +179,7 @@ var highlight  = {
             highlightRanges = highlight.deserializeArray(rangyFragments);
             cssApplier.applyToRanges(highlightRanges);
         } catch(err) {
-            if (scientificAnnotation.DEBUG) console.error("There was an error during highlighting. Potentially corrupted data. "+err.message);
+            if (scientificAnnotation.DEBUG) console.error("There was an error during highlighting. Potentially corrupted data in '"+rangyFragments+"'. "+err.message);
         }
 //        console.log(highlight.highlightRanges.length+' highlights were applied! If some are missing there might be an overlap in which case they get discarded.');
     }

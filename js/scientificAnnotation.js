@@ -281,7 +281,6 @@ var scientificAnnotation  = {
             var targetElement, targetInformationElementId, tripleType;
             var hideElement;
             if (scientificAnnotation.isObjectSelection) {
-                scientificAnnotation.isObjectSelection = false;
                 targetElement = $('#objectValueInput');
                 targetInformationElementId = "displayObjectURI";
                 tripleType = "object";
@@ -297,11 +296,12 @@ var scientificAnnotation  = {
                 if (text && $('#simpleAnnotatePanel').is(':visible')) {
                     scientificAnnotation.setTextValue(text, targetElement);
                     sparql.triple.setObject(tripleType, null, text);
-                    scientificAnnotation.selectedTextPosition = scientificAnnotation.getSelectionCharOffsetsWithin();
+                    if (!scientificAnnotation.isObjectSelection) scientificAnnotation.selectedTextPosition = scientificAnnotation.getSelectionCharOffsetsWithin();
                     dbLookup.showDataFromDBlookup(targetElement.val(), targetInformationElementId);
-                    if (hideElement) hideElement.fadeOut();
+                    if (hideElement) hideElement.hide();
                 }
             }
+            scientificAnnotation.isObjectSelection = false;
         });
     },
 
@@ -328,10 +328,11 @@ var scientificAnnotation  = {
      */
     clearInputField:function (){
         $('#propertyValueInput').val('');
-        $('#subjectValueInput').val('');
         $('#objectValueInput').val('');
         //undefines the triple object values
-        sparql.triple.empty();
+        sparql.triple.emptyObject("property");
+        sparql.triple.emptyObject("object");
+        $('#displayObjectURI').hide();
     },
 
     /**
@@ -358,10 +359,9 @@ var scientificAnnotation  = {
      */
     addAnnotation:function(){
         
-       var propertyValue = $('#propertyValueInput').val();
-       var subjectValue = $('#subjectValueInput').val();
-       var objectValue = $('#objectValueInput').val();
-
+        var propertyValue = $('#propertyValueInput').val();
+        var subjectValue = $('#subjectValueInput').val();
+        var objectValue = $('#objectValueInput').val();
         propertyValue = $.trim(propertyValue);
         subjectValue = $.trim(subjectValue);
         objectValue = $.trim(objectValue);
@@ -379,7 +379,7 @@ var scientificAnnotation  = {
         var textPosition = scientificAnnotation.selectedTextPosition;
         var startPos = 0, endPos = 0;
 
-        if(textPosition != null){
+        if(textPosition){
             startPos = textPosition.start;
             endPos = textPosition.end;
             rangyFragment = textPosition.rangyFragment;
@@ -403,7 +403,6 @@ var scientificAnnotation  = {
      */
     appendAnnotationInDisplayPanel : function (){
 
-        var previousHtml = $('#displayAnnotationResult').html();
         var subject = sparql.triple.subject.label;
         var property = sparql.triple.property.label;
         var object = sparql.triple.object.label;
@@ -421,8 +420,7 @@ var scientificAnnotation  = {
         $('#displayAnnotationResult').append(
                 '<p><strong>Subject:</strong><br/>'+subject+'</p>' +
                 '<p><strong>Property:</strong><br/>'+property+'</p>' +
-                '<p><strong>Object:</strong><br/>'+object+'</p><br/>'+
-                 previousHtml
+                '<p><strong>Object:</strong><br/>'+object+'</p><br/>'
         );
     },
 
@@ -563,6 +561,26 @@ var scientificAnnotation  = {
         scientificAnnotation.showProgressBar('Finding similar result...');
         sparql.findSimilarFiles();
 
+    },
+    
+    /**
+     * Display message in given field
+     * @param message
+     * @param element id where to display the results
+     * @param optional boolean value to define whether to show message temporarily only.
+     * @return void
+     */
+    showResults:function(message, displayInElementId, isHide) {
+        var isHide = isHide || false;
+        var elementID = '#'+displayInElementId;
+        var selector = $(elementID);
+        selector.html(message);
+        selector.fadeIn(1000);
+        if(isHide == true) {
+            selector.delay(1500).fadeOut();
+        }else {
+            selector.show();
+        }
     },
 
     /**
