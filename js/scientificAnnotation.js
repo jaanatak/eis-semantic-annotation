@@ -17,6 +17,7 @@ var scientificAnnotation  = {
 
     // selected text position info
     selectedTextPosition:null,
+    isObjectSelection:false,
 
     /**
      * bind the click event for
@@ -49,17 +50,16 @@ var scientificAnnotation  = {
         });
 	
         $("#dbLookupButton").bind("click", function () { //jaana test - this should be later bound to onchange event or an existing method below
-            dbLookup.showDataFromDBlookup($('#subjectValueInput').val());
+            dbLookup.showDataFromDBlookup($('#subjectValueInput').val(), 'displaySubjectURI');
         });
         
         $("#tripleView").bind("click", function () { //jaana test - delete when done testing userTriple
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
         });
         
-        $("#camelButton").bind("click", function () { //jaana test - delete when done testing userTriple
-           alert(sparql.camelCase($('#subjectValueInput').val(), false));
+        $("#objectTextSelection").bind("click", function () {
+            scientificAnnotation.isObjectSelection = true;
         });
-        
     },
 
     /**
@@ -83,13 +83,15 @@ var scientificAnnotation  = {
             sparql.triple.setObject("property", null, $('#propertyValueInput').val());
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
         });
-	
+	*/
         $("#objectValueInput").bind("change", function () {
-            alert();
-            sparql.triple.setObject("object", null, $('#objectValueInput').val());
+            var trimmedValue = $.trim($('#objectValueInput').val());
+            $('#objectValueInput').val(trimmedValue);
+            sparql.triple.setObject("object", null, trimmedValue);
+            dbLookup.showDataFromDBlookup(trimmedValue, 'displayObjectURI');
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
         });
-*/
+
     },
 
 
@@ -128,9 +130,11 @@ var scientificAnnotation  = {
             if (inputId.indexOf("property") >= 0) {
                 sparql.triple.setObject("property", data.uri, data.value);
             }
+            /*
             else if (inputId.indexOf("object") >= 0) {
                 sparql.triple.setObject("object", data.uri, data.value);
             }
+            */
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
             //if (scientificAnnotation.DEBUG) console.log("SPO triple currently: \n" +JSON.stringify(sparql.triple, null, 4));
             return data.uri; //return resource URI
@@ -274,13 +278,28 @@ var scientificAnnotation  = {
     bindMouseUpEventForPDFViewer: function () {
 
         $("#viewer").bind("mouseup", function () {
+            var targetElement, targetInformationElementId, tripleType;
+            var hideElement;
+            if (scientificAnnotation.isObjectSelection) {
+                scientificAnnotation.isObjectSelection = false;
+                targetElement = $('#objectValueInput');
+                targetInformationElementId = "displayObjectURI";
+                tripleType = "object";
+            } else {
+                targetElement = $('#subjectValueInput');
+                targetInformationElementId = "displaySubjectURI";
+                tripleType = "subject";
+                hideElement = $("#displayObjectURI");
+            }
             var proceed = scientificAnnotation.isSelectionInPDF();
             if (proceed) {
                 var text=scientificAnnotation.getSelectedTextFromPDF();
                 if (text && $('#simpleAnnotatePanel').is(':visible')) {
-                    scientificAnnotation.setTextValue(text);
+                    scientificAnnotation.setTextValue(text, targetElement);
+                    sparql.triple.setObject(tripleType, null, text);
                     scientificAnnotation.selectedTextPosition = scientificAnnotation.getSelectionCharOffsetsWithin();
-                    dbLookup.showDataFromDBlookup($('#subjectValueInput').val());
+                    dbLookup.showDataFromDBlookup(targetElement.val(), targetInformationElementId);
+                    if (hideElement) hideElement.fadeOut();
                 }
             }
         });
@@ -318,11 +337,11 @@ var scientificAnnotation  = {
     /**
      * set the input
      * @param selectedText
+     * @param input object to set
      * @return void
      */
-    setTextValue:function(selectedText) {
-        $('#subjectValueInput').val(selectedText);
-        sparql.triple.setObject("subject", null, selectedText);
+    setTextValue:function(selectedText, targetElement) {
+        targetElement.val(selectedText);
     },
 
     /**
@@ -369,12 +388,11 @@ var scientificAnnotation  = {
 	
        if(!propertyValue || !subjectValue || !objectValue) {
            scientificAnnotation.showErrorMessage('Empty fields. Please provide values and try again',true);
-           if (scientificAnnotation.DEBUG) console.error('Empty fields. Please provide values and try again',true);
+           if (scientificAnnotation.DEBUG) console.error('Empty fields. Please provide values and try again');
        } else {
            scientificAnnotation.showProgressBar('Adding annotation...');
            scientificAnnotation.appendAnnotationInDisplayPanel();
            var success = sparql.addAnnotation(startPos, endPos, rangyPage, rangyFragment);
-           alert(success);
            if (success) scientificAnnotation.clearInputField();
        }
     },
@@ -531,7 +549,7 @@ var scientificAnnotation  = {
             alert('Table selection is not proper :-(');
         }
     },
-
+    
     /**
      * Display similar search
      * @return void
@@ -640,7 +658,7 @@ var scientificAnnotation  = {
         scientificAnnotation.bindEventForInputs();
         scientificAnnotation.bindMouseUpEventForPDFViewer();
         sparql.bindAutoCompleteProperty(null, null);
-        sparql.bindAutoCompleteObject();
+        //sparql.bindAutoCompleteObject();
     }
 };
 

@@ -175,7 +175,7 @@ var sparql  = {
             cache: false,
             success: function(response){
                 sparql.bindAutoCompleteProperty(null, null);
-                sparql.bindAutoCompleteObject();
+                //sparql.bindAutoCompleteObject();
                 scientificAnnotation.hideAnnotationDisplayTable();
                 scientificAnnotation.hideProgressBar();
                 scientificAnnotation.showSuccessMessage('Annotation successfully added');
@@ -194,7 +194,7 @@ var sparql  = {
      * @param searchItem
      * @returns {Array}
      */
-    bindAutoCompleteObject :function(){
+    bindAutoCompleteObject :function(){ //jaana test - might not be necessary at all to produce a dropdown
 
         var q = sparql.resource();
         var selectQuery = 'SELECT distinct str(?o) as ?OBJECT str(?label) as ?LABEL FROM  <'+scientificAnnotation.GRAPH_NAME+'> ' +'\n'+

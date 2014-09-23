@@ -102,24 +102,40 @@ var dbLookup  = {
     }, */
 
     dbResponse: null,
+    dbSubjectResponse: null,
+    dbObjectResponse: null,
     
     /**
      *Query data from DBpedia Lookup service and display
-     *
+     * @param text 
+     * @param String that denotes the ID of the element where to display the results
      * @return void
      */
-    showDataFromDBlookup:function (subject){
+    showDataFromDBlookup:function (keyword, displayInElementId){
+        scientificAnnotation.showProgressBar('Querying DBpedia Lookup...');
         //test function for when there is no internet - jaana test
         if (dbLookup.json != undefined) {
-            dbLookup.dbResponse = dbLookup.json;
-            if (scientificAnnotation.DEBUG) console.log(JSON.stringify(dbLookup.dbResponse, null, 4));
-            var info = dbLookup.addDataToDisplaySubjectURI(dbLookup.dbResponse);
-            dbLookup.showSubjectURI(info);
+            var fakeResponse;
+            if (displayInElementId.indexOf("displaySubjectURI") >= 0) {
+                dbLookup.dbSubjectResponse = dbLookup.json;
+                fakeResponse = dbLookup.json;
+            }
+            else if (displayInElementId.indexOf("displayObjectURI") >= 0) {
+                dbLookup.dbObjectResponse = dbLookup.json;
+                fakeResponse = dbLookup.json;
+            }
+            if (scientificAnnotation.DEBUG) console.log(JSON.stringify(fakeResponse, null, 4));
+            var message = dbLookup.formatResponse(fakeResponse, displayInElementId);
+            if (message) {
+                dbLookup.showResults(message, displayInElementId);
+            } else {
+                dbLookup.showResults("No matches found in DBpedia.org.", displayInElementId, true);
+            }
             return;
         }
 	// test end - delete if needed
-        if (!subject) subject = "Berlin";  //jaana test
-        var queryParameters = dbLookup.queryParameters(subject, null, null);
+        if (!keyword) keyword = "Berlin";  //jaana test
+        var queryParameters = dbLookup.queryParameters(keyword, null, null);
         if (queryParameters) {
             var url = dbLookup.SERVICE_ADDRESS+"?"+queryParameters;
             if (scientificAnnotation.DEBUG) console.log("Contacting " + url);
@@ -140,15 +156,24 @@ var dbLookup  = {
                     // Here's where you handle a successful response.
                     //if (scientificAnnotation.DEBUG) console.log("Success. Returned results: "+response.results.length);
                     if (scientificAnnotation.DEBUG) console.log(JSON.stringify(response, null, 4));
-                    dbLookup.dbResponse = response;
-                    var info = dbLookup.addDataToDisplaySubjectURI(response);
-                    dbLookup.showSubjectURI(info);
+                    if (displayInElementId.indexOf("displaySubjectURI") >= 0) {
+                        dbLookup.dbSubjectResponse = response;
+                    } else if (displayInElementId.indexOf("displayObjectURI") >= 0) {
+                        dbLookup.dbObjectResponse = response;
+                    }
+                    var message = dbLookup.formatResponse(response, displayInElementId);
+                    if (message) {
+                        dbLookup.showResults(message, displayInElementId);
+                    } else {
+                        dbLookup.showResults("No matches found in DBpedia.org.", displayInElementId, true);
+                    }
+                    scientificAnnotation.hideProgressBar();
                 },
                 error: function(jqXHR, exception){
                     var errorTxt= dbLookup.getStandardErrorMessage(jqXHR ,exception);
                     scientificAnnotation.showErrorMessage(errorTxt);
                     if (scientificAnnotation.DEBUG) console.log(errorTxt);
-                    //scientificAnnotation.hideProgressBar();
+                    scientificAnnotation.hideProgressBar();
                 }
             });
         }
@@ -183,11 +208,22 @@ var dbLookup  = {
     /**
      * Show the returned results from DBpedia Lookup in the div #displaySubjectURI.
      * @param JSON response object.
-     * @return html code to inject into the div.
+     * @return String containing formated DBpedia response,
      */
-    addDataToDisplaySubjectURI : function(response){
+    formatResponse : function(response, elementID){
         if (response.results.length > 0) {
-            var htmlTemplate = "<a href='#href' onclick='dbLookup.getBindingData(#onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
+            var htmlTemplate;
+            if (elementID.indexOf("displaySubjectURI") >= 0) {
+                htmlTemplate = "<a href='#href' onclick='dbLookup.getSubjectBindings(#onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
+            }
+            if (elementID.indexOf("displayObjectURI") >= 0) {
+                htmlTemplate = "<a href='#href' onclick='dbLookup.getObjectBindings(#onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
+            }
+            if (!htmlTemplate) { 
+                console.error('No html template defined for element ID = "'+elementID+'"');
+                scientificAnnotation.showErrorMessage('There are results from they query but no element with the name "'+elementID+'" to display it in.',true);
+                return null;
+            }
             var html = "";
             var br = "";
             $.each(response.results, function(i, item) {
@@ -201,7 +237,7 @@ var dbLookup  = {
             if (html.length > 0) html = "Is this the same as any of the below?<br/>" + html;
             return html;
         } else {
-            return "No matches found in DBpedia.org.";
+            return null;
         }
     },
     
@@ -233,30 +269,53 @@ var dbLookup  = {
      * @param refers to results[index] in JSON object dbResponse, initialised when user selects a subject from the list.
      * @return false, avoids opening the selected <href\> link in the browser.
      */
-    getBindingData : function(index){
-		var selectedSubject = dbLookup.dbResponse.results[index].uri;
-		if (scientificAnnotation.DEBUG) console.log("User selected subject URI = " + selectedSubject);
-        sparql.triple.setObject("subject", selectedSubject, $('#subjectValueInput').val());
+    getSubjectBindings : function(index){
+		var selectedResource = dbLookup.dbSubjectResponse.results[index].uri;
+		if (scientificAnnotation.DEBUG) console.log("User selected subject URI = " + selectedResource);
+        sparql.triple.setObject("subject", selectedResource, $('#subjectValueInput').val());
         //undefines the P O  values of the triple
         $('#propertyValueInput').val('');
         sparql.triple.emptyObject("property");
         $('#objectValueInput').val('');
         sparql.triple.emptyObject("object");
-		var relatedClasses = dbLookup.getUriClasses(dbLookup.dbResponse.results[index].classes, "dbpedia.org").URIs;
+		var relatedClasses = dbLookup.getUriClasses(dbLookup.dbSubjectResponse.results[index].classes, "dbpedia.org").URIs;
 		if (scientificAnnotation.DEBUG) console.log("\trelated classes: " + relatedClasses.toString());
-		sparql.bindAutoCompleteProperty(selectedSubject, relatedClasses);
+		sparql.bindAutoCompleteProperty(selectedResource, relatedClasses);
+		return false;
+    },
+    
+    /**
+     * Prepares necessary data before binding of URIs to its properties can take place.
+     * @param refers to results[index] in JSON object dbResponse, initialised when user selects a subject from the list.
+     * @return false, avoids opening the selected <href\> link in the browser.
+     */
+    getObjectBindings : function(index){
+		var selectedResource = dbLookup.dbObjectResponse.results[index].uri;
+		if (scientificAnnotation.DEBUG) console.log("User selected object URI = " + selectedResource);
+        sparql.triple.setObject("object", selectedResource, $('#objectValueInput').val());
+		var relatedClasses = dbLookup.getUriClasses(dbLookup.dbObjectResponse.results[index].classes, "dbpedia.org").URIs;
+		if (scientificAnnotation.DEBUG) console.log("\trelated classes: " + relatedClasses.toString());
 		return false;
     },
     
     /**
      * Display success message
      * @param message
+     * @param element id where to display the results
+     * @param optional boolean value to define whether to show message temporarily only.
      * @return void
      */
-    showSubjectURI:function(message) {
-        var selector = $('#displaySubjectURI');
+    showResults:function(message, displayInElementId, isHide) {
+        var isHide = isHide || false;
+        var elementID = '#'+displayInElementId;
+        var selector = $(elementID);
         selector.html(message);
         selector.fadeIn(1000);
+        if(isHide == true) {
+            selector.delay(1500).fadeOut();
+        }else {
+            selector.show();
+        }
     },
 
     /**
