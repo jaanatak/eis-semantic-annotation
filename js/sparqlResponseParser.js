@@ -10,9 +10,9 @@ Parse the json response from virtuso server
 var sparqlResponseParser  = {
 
     /**
-     * Parse the json response form db and render the tabular view, while display available annotations
+     * Parse the json response form db and render a tabular view of the results
      *
-     * @param response
+     * @param JSON response
      */
     parseResponse:function(response) {
 	var fragments = [];
@@ -62,15 +62,15 @@ var sparqlResponseParser  = {
                 });
             }
         });
-        if (scientificAnnotation.DEBUG) console.log("Returned " +resource+ ": "+JSON.stringify(map, null, 4));
+        if (scientificAnnotation.DEBUG) console.log("Returned " +map.length+ " "+resource+ "s. " /*+JSON.stringify(map, null, 4)*/ );
         return map;
     },
     
     /**
      * Parse the json response and return as array
      *
-     * @param response
-     * @returns {Array}
+     * @param JSON response
+     * @returns {Array} of results
      */
     parseSimilarSearch:function(response) {
 

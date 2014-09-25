@@ -15,126 +15,19 @@ var dbLookup  = {
     PARAM_CLASS: "QueryClass",
     PARAM_STRING: "QueryString",
     PARAM_MAXHITS: "MaxHits",
-    //jaana test - test fn for json string for when there is no internet
-    /*json: {
-        results: [
-            {
-                uri: "http://dbpedia.org/resource/Berlin",
-                label: "Berlin",
-                description: "Berlin is the capital city of Germany and one of the 16 states of Germany. With a population of 3.5 million people, Berlin is Germany's largest city and is the second most populous city proper and the eighth most populous urban area in the European Union. Located in northeastern Germany, it is the center of the Berlin-Brandenburg Metropolitan Region, which has 5.9 million residents from over 190 nations. Located in the European Plains, Berlin is influenced by a temperate seasonal climate.",
-                refCount: 18984,
-                classes: [
-                    {
-                        uri: "http://dbpedia.org/ontology/Place",
-                        label: "place"
-                    },
-                    {
-                        uri: "http://schema.org/City",
-                        label: "city"
-                    },
-                    {
-                        uri: "http://schema.org/Place",
-                        label: "place"
-                    },
-                    {
-                        uri: "http://dbpedia.org/ontology/City",
-                        label: "city"
-                    },
-                    {
-                        uri: "http://www.w3.org/2002/07/owl#Thing",
-                        label: "owl#Thing"
-                    },
-                    {
-                        uri: "http://dbpedia.org/ontology/PopulatedPlace",
-                        label: "populated place"
-                    },
-                    {
-                        uri: "http://dbpedia.org/ontology/Settlement",
-                        label: "settlement"
-                    }
-                ],
-                categories: [
-                    {
-                        uri: "http://dbpedia.org/resource/Category:States_and_territories_established_in_1237",
-                        label: "States and territories established in 1237"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:City-states",
-                        label: "City-states"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:States_of_Germany",
-                        label: "States of Germany"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:Populated_places_established_in_the_13th_century",
-                        label: "Populated places established in the 13th century"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:German_state_capitals",
-                        label: "German state capitals"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:Berlin",
-                        label: "Berlin"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:Host_cities_of_the_Summer_Olympic_Games",
-                        label: "Host cities of the Summer Olympic Games"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:Members_of_the_Hanseatic_League",
-                        label: "Members of the Hanseatic League"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:Capitals_in_Europe",
-                        label: "Capitals in Europe"
-                    },
-                    {
-                        uri: "http://dbpedia.org/resource/Category:European_Capitals_of_Culture",
-                        label: "European Capitals of Culture"
-                    }
-                ],
-                templates: [],
-                redirects: []
-            }
-        ]
-    }, */
-
     dbResponse: null,
     dbSubjectResponse: null,
     dbObjectResponse: null,
     
     /**
-     *Query data from DBpedia Lookup service and display
-     * @param text 
-     * @param String that denotes the ID of the element where to display the results
+     *Query data from DBpedia Lookup service and display in given element
+     * @param {String} keyword that is queried 
+     * @param {Object} element where to display the results from the query
      * @return void
      */
-    showDataFromDBlookup:function (keyword, displayInElementId){
+    showDataFromDBlookup:function (keyword, targetInfoElement){
         scientificAnnotation.showProgressBar('Querying DBpedia Lookup...');
-        //test function for when there is no internet - jaana test
-        if (dbLookup.json != undefined) {
-            var fakeResponse;
-            if (displayInElementId.indexOf("displaySubjectURI") >= 0) {
-                dbLookup.dbSubjectResponse = dbLookup.json;
-                fakeResponse = dbLookup.json;
-            }
-            else if (displayInElementId.indexOf("displayObjectURI") >= 0) {
-                dbLookup.dbObjectResponse = dbLookup.json;
-                fakeResponse = dbLookup.json;
-            }
-            if (scientificAnnotation.DEBUG) console.log(JSON.stringify(fakeResponse, null, 4));
-            var message = dbLookup.formatResponse(fakeResponse, displayInElementId);
-            if (message) {
-                scientificAnnotation.showResults(message, displayInElementId);
-            } else {
-                scientificAnnotation.showResults("No matches found in DBpedia.org.", displayInElementId, true);
-            }
-            return;
-        }
-	// test end - delete if needed
-        if (!keyword) keyword = "Berlin";  //jaana test
+        if (test.NO_INTERNET) return test.bypassAjaxCall(targetInfoElement); //remove from production
         var queryParameters = dbLookup.queryParameters(keyword, null, null);
         if (queryParameters) {
             var url = dbLookup.SERVICE_ADDRESS+"?"+queryParameters;
@@ -155,17 +48,17 @@ var dbLookup  = {
                 success: function(response) {
                     // Here's where you handle a successful response.
                     //if (scientificAnnotation.DEBUG) console.log("Success. Returned results: "+response.results.length);
-                    if (scientificAnnotation.DEBUG) console.log(JSON.stringify(response, null, 4));
-                    if (displayInElementId.indexOf("displaySubjectURI") >= 0) {
+                    //if (scientificAnnotation.DEBUG) console.log(JSON.stringify(response, null, 4));
+                    if (targetInfoElement.is(scientificAnnotation.DIV_SUBJECTS)) {
                         dbLookup.dbSubjectResponse = response;
-                    } else if (displayInElementId.indexOf("displayObjectURI") >= 0) {
+                    } else if (targetInfoElement.is(scientificAnnotation.DIV_OBJECTS)) {
                         dbLookup.dbObjectResponse = response;
                     }
-                    var message = dbLookup.formatResponse(response, displayInElementId);
+                    var message = dbLookup.formatResponse(response, targetInfoElement);
                     if (message) {
-                        scientificAnnotation.showResults(message, displayInElementId);
+                        scientificAnnotation.displayInfo(message, targetInfoElement);
                     } else {
-                        scientificAnnotation.showResults("No matches found in DBpedia.org.", displayInElementId, true);
+                        scientificAnnotation.displayInfo("No matches found in DBpedia.org.", targetInfoElement, true);
                     }
                     scientificAnnotation.hideProgressBar();
                 },
@@ -192,7 +85,9 @@ var dbLookup  = {
         if (qString) {
             parameters = dbLookup.PARAM_STRING + "=" + encodeURIComponent(qString);
         } else {
-            if (scientificAnnotation.DEBUG) console.log("Cannot query DBpedia Lookup service - subject missing!");
+            var error = "Cannot query DBpedia Lookup service - keyword is missing!";
+            if (scientificAnnotation.DEBUG) console.error(error);
+            scientificAnnotation.showErrorMessage(error, isHide);
             return null;
         }
         if (qClass) {
@@ -210,18 +105,18 @@ var dbLookup  = {
      * @param JSON response object.
      * @return String containing formated DBpedia response,
      */
-    formatResponse : function(response, elementID){
+    formatResponse : function(response, targetInfoElement){
         if (response.results.length > 0) {
             var htmlTemplate;
-            if (elementID.indexOf("displaySubjectURI") >= 0) {
-                htmlTemplate = "<a href='#href' onclick='dbLookup.getSubjectBindings(#onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
+            if (targetInfoElement.is(scientificAnnotation.DIV_SUBJECTS)) {
+                htmlTemplate = "<a href='#href' onclick='dbLookup.getSubjectBindings(this, #onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
             }
-            if (elementID.indexOf("displayObjectURI") >= 0) {
+            if (targetInfoElement.is(scientificAnnotation.DIV_OBJECTS)) {
                 htmlTemplate = "<a href='#href' onclick='dbLookup.getObjectBindings(#onclick); return false;' target='_blank' title='#description'>#label #classes</a>";
             }
             if (!htmlTemplate) { 
-                console.error('No html template defined for element ID = "'+elementID+'"');
-                scientificAnnotation.showErrorMessage('There are results from they query but no element with the name "'+elementID+'" to display it in.',true);
+                console.error('No html template defined for element ID = "'+targetInfoElement.attr("id")+'"');
+                scientificAnnotation.showErrorMessage('There are results from they query but no element with the name "'+targetInfoElement.attr("id")+'" to display it in.',true);
                 return null;
             }
             var html = "";
@@ -229,7 +124,7 @@ var dbLookup  = {
             $.each(response.results, function(i, item) {
                 var uriClasses = dbLookup.getUriClasses(item.classes, "dbpedia.org");
                 var classes = "";
-                if (uriClasses.labels.length > 0) classes = "[" + uriClasses.labels.toString() + "]";
+                if (uriClasses.labels.length > 0) classes = "[" + uriClasses.labels.join(', ') + "]";
                 html += br;
                 html = html + htmlTemplate.replace("#href", item.uri).replace("#description", item.description).replace("#label", item.label).replace("#classes", classes).replace("#onclick", i);
                 br = "</br>"
@@ -266,35 +161,38 @@ var dbLookup  = {
     
     /**
      * Prepares necessary data before binding of URIs to its properties can take place.
-     * @param refers to results[index] in JSON object dbResponse, initialised when user selects a subject from the list.
+     * @param refers to results[index] in JSON object dbSubjectResponse, initialised when user selects a subject from the list.
      * @return false, avoids opening the selected <href\> link in the browser.
      */
-    getSubjectBindings : function(index){
-		var selectedResource = dbLookup.dbSubjectResponse.results[index].uri;
-		if (scientificAnnotation.DEBUG) console.log("User selected subject URI = " + selectedResource);
-        sparql.triple.setObject("subject", selectedResource, $('#subjectValueInput').val());
-        //undefines the P O  values of the triple
-        $('#propertyValueInput').val('');
-        sparql.triple.emptyObject("property");
-        $('#objectValueInput').val('');
-        sparql.triple.emptyObject("object");
-		var relatedClasses = dbLookup.getUriClasses(dbLookup.dbSubjectResponse.results[index].classes, "dbpedia.org").URIs;
-		if (scientificAnnotation.DEBUG) console.log("\trelated classes: " + relatedClasses.toString());
-		sparql.bindAutoCompleteProperty(selectedResource, relatedClasses);
+    getSubjectBindings : function(selection, index){
+        var sourceElement = $(selection).closest('div'); //looking for 
+        var targetElement;
+        var selectedResource;
+        if (sourceElement.is(scientificAnnotation.DIV_SUBJECTS)) {
+            targetElement = scientificAnnotation.INPUT_SUBJECT;
+            selectedResource = dbLookup.dbSubjectResponse.results[index];
+            if (scientificAnnotation.DEBUG) console.log("User selected subject URI = " + selectedResource.uri);
+        }
+        if (targetElement) {
+            sparql.triple.set(targetElement, selectedResource.uri);
+            sparql.triple.empty(scientificAnnotation.INPUT_PROPERTY);
+            sparql.triple.empty(scientificAnnotation.INPUT_OBJECT);
+        }
+        scientificAnnotation.DIV_OBJECTS.hide();
+		var relatedClasses = dbLookup.getUriClasses(selectedResource.classes, "dbpedia.org").URIs;
+		sparql.bindAutoCompleteProperty(selectedResource.uri, relatedClasses);
 		return false;
     },
     
     /**
-     * Prepares necessary data before binding of URIs to its properties can take place.
-     * @param refers to results[index] in JSON object dbResponse, initialised when user selects a subject from the list.
+     * Function is called when user selects on one of the suggested resource links for objects. Sets object uri value of a triple.
+     * @param refers to results[index] in JSON object dbObjectResponse, initialised when user selects a subject from the list.
      * @return false, avoids opening the selected <href\> link in the browser.
      */
     getObjectBindings : function(index){
 		var selectedResource = dbLookup.dbObjectResponse.results[index].uri;
 		if (scientificAnnotation.DEBUG) console.log("User selected object URI = " + selectedResource);
-        sparql.triple.setObject("object", selectedResource, $('#objectValueInput').val());
-		var relatedClasses = dbLookup.getUriClasses(dbLookup.dbObjectResponse.results[index].classes, "dbpedia.org").URIs;
-		if (scientificAnnotation.DEBUG) console.log("\trelated classes: " + relatedClasses.toString());
+        sparql.triple.set(scientificAnnotation.INPUT_OBJECT, selectedResource);
 		return false;
     },
     

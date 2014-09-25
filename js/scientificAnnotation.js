@@ -12,131 +12,117 @@ This file is the main entry point for this tools for all the event
 "use strict";
 var scientificAnnotation  = {
 
-    GRAPH_NAME : 'scientificAnnotation',
     DEBUG: true, //determines whether to log to console window
-
+    //initialised under init()
+    BTN_PANEL: null,
+    BTN_ADD: null,
+    BTN_RECOMMENDER: null,
+    BTN_ANNOTATIONS: null,
+    BTN_TABLE: null,
+    BTN_SELECT_TEXT: null,
+    INPUT_SUBJECT: null,
+    INPUT_PROPERTY: null,
+    INPUT_OBJECT: null,
+    DIV_VIEWER: null,
+    DIV_ANNOTATIONS: null,
+    DIV_ADDED: null,
+    DIV_SUBJECTS: null,
+    DIV_OBJECTS: null,
+    DIV_RECOMMENDER: null,
+    DIV_TRIPLES: null,
+    DIV_PROGRESS: null,
+    DIV_SUCCESS: null,
+    DIV_ERROR: null,
+    DIV_WARN: null,
+    BAR_PROGRESS: null,
     // selected text position info
     selectedTextPosition:null,
     isObjectSelection:false,
 
     /**
-     * bind the click event for
-     * add annotation,
-     * show similar search and
-     * show available query
+     * bind the click event for buttons
      *
      * @return void
      */
     bindClickEventForButtons: function () {
 
-        $("#simpleAnnotateButton").bind("click", function () {
-            scientificAnnotation.showSimpleAnnotatePanel($(this));
+        scientificAnnotation.BTN_PANEL.bind("click", function () {
+            scientificAnnotation.toggleSimpleAnnotatePanel($(this));
         });
 
-        $("#addAnnotationButton").bind("click", function () {
+        scientificAnnotation.BTN_ADD.bind("click", function () {
             scientificAnnotation.addAnnotation();
         });
 
-        $("#showSimilarSearchButton").bind("click", function () {
+        scientificAnnotation.BTN_RECOMMENDER.bind("click", function () {
             scientificAnnotation.showSimilarSearchResult();
         });
 
-        $("#queryButton").bind("click", function () {
+        scientificAnnotation.BTN_ANNOTATIONS.bind("click", function () {
             scientificAnnotation.fetchDataFromDatabase();
         });
 
-        $("#annotateTableButton").bind("click", function () {
+        scientificAnnotation.BTN_TABLE.bind("click", function () {
             scientificAnnotation.annotateTable();
         });
-	
-        $("#dbLookupButton").bind("click", function () { //jaana test - this should be later bound to onchange event or an existing method below
-            dbLookup.showDataFromDBlookup($('#subjectValueInput').val(), 'displaySubjectURI');
-        });
         
-        $("#tripleView").bind("click", function () { //jaana test - delete when done testing userTriple
-            if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
-        });
-        
-        $("#objectTextSelection").bind("click", function () {
+        scientificAnnotation.BTN_SELECT_TEXT.bind("click", function () {
             scientificAnnotation.isObjectSelection = true;
         });
+
     },
 
     /**
-     * bind events for
-     * subject input,
-     * object input
-     * property input
+     * bind events for input fields
      *
      * @return void
      */
     bindEventForInputs: function () {
-        $("#subjectValueInput").bind("change", function () {
-            var trimmedValue = $.trim($('#subjectValueInput').val());
-            $('#subjectValueInput').val(trimmedValue);
-            sparql.triple.setObject("subject", null, trimmedValue);
-            if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
-        });
-	/*
-        $("#propertyValueInput").bind("change", function () {
-            alert();
-            sparql.triple.setObject("property", null, $('#propertyValueInput').val());
-            if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
-        });
-	*/
-        $("#objectValueInput").bind("change", function () {
-            var trimmedValue = $.trim($('#objectValueInput').val());
-            $('#objectValueInput').val(trimmedValue);
-            sparql.triple.setObject("object", null, trimmedValue);
-            dbLookup.showDataFromDBlookup(trimmedValue, 'displayObjectURI');
+        scientificAnnotation.INPUT_SUBJECT.bind("change", function () {
+            sparql.triple.set($(this));
+            dbLookup.showDataFromDBlookup($(this).val(), scientificAnnotation.DIV_SUBJECTS);
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
         });
 
+        scientificAnnotation.INPUT_OBJECT.bind("change", function () {
+            sparql.triple.set($(this));
+            dbLookup.showDataFromDBlookup($(this).val(), scientificAnnotation.DIV_OBJECTS);
+            if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
+        });
     },
-
 
     /**
      * show the simple annotate panel
-     * @param button
+     * @param button for which to change text
      */
-    showSimpleAnnotatePanel : function (button) {
-        var simpleAnnotateWindow = $('#simpleAnnotatePanel');
-        if (simpleAnnotateWindow.is(':visible')) {
-            simpleAnnotateWindow.hide();
+    toggleSimpleAnnotatePanel : function (button) {
+        var panel = scientificAnnotation.DIV_ANNOTATIONS;
+        if (panel.is(':visible')) {
+            panel.hide();
             button.text('Show Simple Annotate Panel');
         } else {
-            simpleAnnotateWindow.fadeIn(500);
+            panel.fadeIn(500);
             button.text('Hide Simple Annotate Panel');
         }
     },
 
     /**
-     * Set auto compute data for property or object field
+     * Set auto compute data for a given input field
      *
-     * @param {Array of objects} containing query results for a requested resource (objects or properties)
-     * @param {String} input field ID, where to output the list of values
-     * @return void
+     * @param {Array of objects} containing query results for a requested resource (eg. properties)
+     * @param {Object} input field  where to output the list of values
+     * @return {String} URI of the user's selection
      *
      */
-    setAutoComputeDataForField :function(resources, inputId){
-        var propertyField = $('#'+inputId);
-        propertyField.typeahead('destroy');
-        propertyField.typeahead(
+    setAutoComputeDataForField :function(resources, inputObject){
+        inputObject.typeahead('destroy');
+        inputObject.typeahead(
 		{
 			local: resources
 		}
         ).on('typeahead:selected', function(event, data) { //triggers when user selects an item from the list
-            if (scientificAnnotation.DEBUG) console.log(inputId+'> User selected: ' + JSON.stringify(data, null, 4));
-            if (inputId.indexOf("property") >= 0) {
-                sparql.triple.setObject("property", data.uri, data.value);
-            }
-            /*
-            else if (inputId.indexOf("object") >= 0) {
-                sparql.triple.setObject("object", data.uri, data.value);
-            }
-            */
+            sparql.triple.set(inputObject, data.uri);
             if (scientificAnnotation.DEBUG) console.log("Triple view: \n" +JSON.stringify(sparql.triple, null, 4));
-            //if (scientificAnnotation.DEBUG) console.log("SPO triple currently: \n" +JSON.stringify(sparql.triple, null, 4));
             return data.uri; //return resource URI
         });
     },
@@ -145,25 +131,20 @@ var scientificAnnotation  = {
      * Set similar search result
      *
      * @param searchResult
+     * @param {Object} element where to display the recommendations
      * @return void
      */
-    setSimilarSearchResult :function(searchResult){
-
-        var similarPubsList = $("#similarPubsList");
-
+    setSimilarSearchResult :function(searchResult, targetObject){
         if(searchResult.length > 0) {
             scientificAnnotation.hideAnnotationDisplayTable();
-            similarPubsList.empty();
+            targetObject.empty();
             for(var i = 0; i < searchResult.length; i++) {
-                similarPubsList.append(
-                    '<a href="'+searchResult[i]+'" class="list-group-item">'+searchResult[i]+'</a>'
-                );
+                targetObject.append('<a href="'+searchResult[i]+'" class="list-group-item">'+searchResult[i]+'</a>');
             }
-            similarPubsList.fadeIn(500);// show the result
+            targetObject.fadeIn(500);// show the result
         } else {
-            scientificAnnotation.showWarningMessage('No similar result found.');
+            scientificAnnotation.showWarningMessage('No similar publications found.');
         }
-
     },
 
     /**
@@ -196,7 +177,7 @@ var scientificAnnotation  = {
             end = end - previousPagesCharCount;
         }
 
-	var rangy_result = highlight.rangy_serialize();
+        var rangy_result = highlight.rangy_serialize();
 	
         return {
             start: start,
@@ -249,12 +230,10 @@ var scientificAnnotation  = {
                 page_text += block.str;
                 last_block = block;
             }
-
             count = page_text.length;
         }
-
-       return count;
-   },
+        return count;
+    },
 
     /**
      * Get all characters before current page
@@ -276,28 +255,25 @@ var scientificAnnotation  = {
      * @return void
      */
     bindMouseUpEventForPDFViewer: function () {
-
-        $("#viewer").bind("mouseup", function () {
-            var targetElement, targetInformationElementId, tripleType;
+        scientificAnnotation.DIV_VIEWER.bind("mouseup", function () {
+            var targetElement, targetInfoElement;
             var hideElement;
             if (scientificAnnotation.isObjectSelection) {
-                targetElement = $('#objectValueInput');
-                targetInformationElementId = "displayObjectURI";
-                tripleType = "object";
+                targetElement = scientificAnnotation.INPUT_OBJECT;
+                targetInfoElement = scientificAnnotation.DIV_OBJECTS;
             } else {
-                targetElement = $('#subjectValueInput');
-                targetInformationElementId = "displaySubjectURI";
-                tripleType = "subject";
-                hideElement = $("#displayObjectURI");
+                targetElement = scientificAnnotation.INPUT_SUBJECT;
+                targetInfoElement = scientificAnnotation.DIV_SUBJECTS;
+                hideElement = scientificAnnotation.DIV_OBJECTS;
             }
             var proceed = scientificAnnotation.isSelectionInPDF();
             if (proceed) {
                 var text=scientificAnnotation.getSelectedTextFromPDF();
-                if (text && $('#simpleAnnotatePanel').is(':visible')) {
-                    scientificAnnotation.setTextValue(text, targetElement);
-                    sparql.triple.setObject(tripleType, null, text);
+                if (text && scientificAnnotation.DIV_ANNOTATIONS.is(':visible')) {
+                    targetElement.val(text);
+                    sparql.triple.set(targetElement);
                     if (!scientificAnnotation.isObjectSelection) scientificAnnotation.selectedTextPosition = scientificAnnotation.getSelectionCharOffsetsWithin();
-                    dbLookup.showDataFromDBlookup(targetElement.val(), targetInformationElementId);
+                    dbLookup.showDataFromDBlookup(targetElement.val(), targetInfoElement);
                     if (hideElement) hideElement.hide();
                 }
             }
@@ -306,18 +282,19 @@ var scientificAnnotation  = {
     },
 
     /**
-     * bind the mouse click event in the displayed table rows to
+     * bind the mouse click event in the given element for table rows to
      * highlight the subject part in the whole document
+     * @param {Object} element under which a table is contained that needs clickable rows.
      * @return void
      */
-    bindAnnotationTableSubjectClickEvent: function () {
-
-        $('#sparqlTable').on('click', 'tr', function() {
+    bindAnnotationTableSubjectClickEvent: function (targetObject) {
+        var table = targetObject.find("table:first"); 
+        table.on('click', 'tr', function() {
             var subject = this.cells[0];  // the first <td>
             subject = subject.innerHTML
-            if(subject != ''){
-                subject = $.trim(subject);
-                PDFFindBar.searchAndHighlight(subject);
+            if(subject) {
+                PDFFindBar.searchAndHighlight(subject); //PDF.js method. 
+                alert('This native highlighting should be replaced with rangy methods, otherwise it corrupts the rangy highlights.');
             }
         });
     },
@@ -327,22 +304,10 @@ var scientificAnnotation  = {
      * @return void
      */
     clearInputField:function (){
-        $('#propertyValueInput').val('');
-        $('#objectValueInput').val('');
-        //undefines the triple object values
-        sparql.triple.emptyObject("property");
-        sparql.triple.emptyObject("object");
-        $('#displayObjectURI').hide();
-    },
-
-    /**
-     * set the input
-     * @param selectedText
-     * @param input object to set
-     * @return void
-     */
-    setTextValue:function(selectedText, targetElement) {
-        targetElement.val(selectedText);
+        sparql.triple.empty(scientificAnnotation.INPUT_PROPERTY);
+        sparql.triple.empty(scientificAnnotation.INPUT_OBJECT);
+        //we leave subject as is in case user wants to add more statements about it
+        scientificAnnotation.DIV_OBJECTS.hide();
     },
 
     /**
@@ -354,47 +319,33 @@ var scientificAnnotation  = {
     },
 
     /**
-     * perform the adding of  annotation
+     * perform the adding of annotation
      * @return void
      */
     addAnnotation:function(){
-        
-        var propertyValue = $('#propertyValueInput').val();
-        var subjectValue = $('#subjectValueInput').val();
-        var objectValue = $('#objectValueInput').val();
-        propertyValue = $.trim(propertyValue);
-        subjectValue = $.trim(subjectValue);
-        objectValue = $.trim(objectValue);
-        //some cleaning up
-        sparql.triple.property.label = propertyValue;
-        sparql.triple.subject.label = subjectValue;
-        sparql.triple.object.label = objectValue;
-        $('#propertyValueInput').val(propertyValue);
-        $('#subjectValueInput').val(subjectValue);
-        $('#objectValueInput').val(objectValue);
-        
-        var rangyFragment = null;
-        var rangyPage = null;
-
-        var textPosition = scientificAnnotation.selectedTextPosition;
-        var startPos = 0, endPos = 0;
-
-        if(textPosition){
-            startPos = textPosition.start;
-            endPos = textPosition.end;
-            rangyFragment = textPosition.rangyFragment;
-            rangyPage = textPosition.rangyPage;
+        sparql.triple.set(scientificAnnotation.INPUT_SUBJECT, sparql.triple.subject.uri);
+        sparql.triple.set(scientificAnnotation.INPUT_PROPERTY, sparql.triple.property.uri);
+        sparql.triple.set(scientificAnnotation.INPUT_OBJECT, sparql.triple.object.uri);
+        var hasMissingValues = (!scientificAnnotation.INPUT_SUBJECT.val() || !scientificAnnotation.INPUT_PROPERTY.val() || !scientificAnnotation.INPUT_OBJECT.val()) ? true : false;
+        if(hasMissingValues) {
+            scientificAnnotation.showErrorMessage('Empty fields. Please provide values and try again',true);
+            if (scientificAnnotation.DEBUG) console.error('Empty fields. Please provide values and try again');
+        } else {
+            var rangyFragment = null;
+            var rangyPage = null;
+            var textPosition = scientificAnnotation.selectedTextPosition;
+            var startPos = 0, endPos = 0;
+            if(textPosition){
+                startPos = textPosition.start;
+                endPos = textPosition.end;
+                rangyFragment = textPosition.rangyFragment;
+                rangyPage = textPosition.rangyPage;
+            }
+            scientificAnnotation.showProgressBar('Adding annotation...');
+            scientificAnnotation.appendAnnotationInDisplayPanel();
+            var success = sparql.addAnnotation(startPos, endPos, rangyPage, rangyFragment);
+            if (success) scientificAnnotation.clearInputField();
         }
-	
-       if(!propertyValue || !subjectValue || !objectValue) {
-           scientificAnnotation.showErrorMessage('Empty fields. Please provide values and try again',true);
-           if (scientificAnnotation.DEBUG) console.error('Empty fields. Please provide values and try again');
-       } else {
-           scientificAnnotation.showProgressBar('Adding annotation...');
-           scientificAnnotation.appendAnnotationInDisplayPanel();
-           var success = sparql.addAnnotation(startPos, endPos, rangyPage, rangyFragment);
-           if (success) scientificAnnotation.clearInputField();
-       }
     },
 
     /**
@@ -402,7 +353,6 @@ var scientificAnnotation  = {
      * @return void
      */
     appendAnnotationInDisplayPanel : function (){
-
         var subject = sparql.triple.subject.label;
         var property = sparql.triple.property.label;
         var object = sparql.triple.object.label;
@@ -417,7 +367,7 @@ var scientificAnnotation  = {
             object = '<a href="'+sparql.triple.object.uri+'" target="_blank">' + object + '</a>';
         }
         scientificAnnotation.clearAnnotationDisplayPanel();
-        $('#displayAnnotationResult').append(
+        scientificAnnotation.DIV_ADDED.append(
                 '<p><strong>Subject:</strong><br/>'+subject+'</p>' +
                 '<p><strong>Property:</strong><br/>'+property+'</p>' +
                 '<p><strong>Object:</strong><br/>'+object+'</p><br/>'
@@ -425,69 +375,44 @@ var scientificAnnotation  = {
     },
 
     /**
+     * Reset the annotation display tables, used by viewer.js
+     * @return void
+     */
+    resetAnnotationTable:function (){
+        scientificAnnotation.DIV_TRIPLES.empty();
+    },
+    
+    /**
      * clear available annotations
      */
     clearAnnotationDisplayPanel:function (){
-        $('#displayAnnotationResult').empty();
+        scientificAnnotation.DIV_ADDED.empty();
     },
 
     /**
      * clear the similar search window and hide
      */
     clearSimilarSearchResult:function(){
-        var similarPubsList = $("#similarPubsList");
-        similarPubsList.empty();
-        similarPubsList.fadeOut(300);
-    },
-
-
-    /**
-     * Reset the annotation display tables
-     * @return void
-     */
-    resetAnnotationTable:function (){
-        $('#displayTableTitle').empty();
-        $('#displaySparqlTableRows').empty();
+        scientificAnnotation.DIV_RECOMMENDER.empty();
+        scientificAnnotation.DIV_RECOMMENDER.fadeOut(300);
     },
 
     /**
      * Show the added annotation of the document from spaql
-     * @param propertyValue
-     * @param subjectValue
-     * @param objectiveValue
+     * @param {String} property label
+     * @param {String} subject label
+     * @param {String} object label
      * @return void
      */
-    addDataToSparqlTableView : function (subjectValue ,propertyValue, objectValue){
-
-        $('#sparqlTable tr:last').after(
+    addDataToSparqlTableView : function (subjectValue, propertyValue, objectValue){
+        var tablerow = scientificAnnotation.DIV_TRIPLES.find("table:first tr:last"); 
+        tablerow.after(
             '<tr>' +
                 '<td>'+subjectValue+'</td>' +
                 '<td>'+propertyValue+'</td>' +
                 '<td>'+objectValue+'</td>' +
-                '</tr>'
+            '</tr>'
         );
-    },
-
-    /**
-     * Create the tables for viewing the available data from the db
-     * @return void
-     */
-    createSparqlTable:function(){
-        $('#displayTableTitle').empty();
-        $('#displayTableTitle').append(
-            '<br><p>Available annotation of this file:::</p><br>'
-        );
-
-        $('#displaySparqlTableRows').empty();
-        $('#displaySparqlTableRows').append(
-            "<table id='sparqlTable' width='100%' >"+
-                "<tr>"+
-                    "<th width='50%'> Subject </th> <th width='20%'> Property </th> <th width='30%'> Object </th>"+
-                "</tr>"+
-            "</table>"
-        );
-
-        scientificAnnotation.bindAnnotationTableSubjectClickEvent();
     },
 
     /**
@@ -495,11 +420,21 @@ var scientificAnnotation  = {
      * @return void
      */
     displayAvailableAnnotationFromSparql:function(){
-
         scientificAnnotation.clearAnnotationDisplayPanel();
-        $('#displayTableTitle').show();
-        scientificAnnotation.createSparqlTable();
-        $('#displaySparqlTableRows').show();
+        var htmlTemplate = "<p>Available annotations for this file:</p>" +'\n'+
+                                    "<div id='displaySparqlTableRows' style='overflow:auto; width:800px; height:300px;'>" +'\n'+
+                                        "<table id='sparqlTable' width='100%'>" +'\n'+
+                                            "<tbody>" +'\n'+
+                                                "<tr>" +'\n'+
+                                                    "<th width='50%'> Subject </th>" +'\n'+
+                                                    "<th width='20%'> Property </th>" +'\n'+
+                                                    "<th width='30%'> Object </th>" +'\n'+
+                                                "</tr>" +'\n'+
+                                            "</tbody>" +'\n'+
+                                        "</table>" +'\n'+
+                                    "</div>";
+        scientificAnnotation.DIV_TRIPLES.html(htmlTemplate);
+        scientificAnnotation.bindAnnotationTableSubjectClickEvent(scientificAnnotation.DIV_TRIPLES);
     },
 
     /**
@@ -507,7 +442,7 @@ var scientificAnnotation  = {
      * @return void
      */
     noAvailableAnnotationFromSparql:function(){
-        scientificAnnotation.showWarningMessage('No available annotation found  of this file');
+        scientificAnnotation.showWarningMessage('No available annotations found for this file.');
         scientificAnnotation.hideProgressBar();
     },
 
@@ -516,8 +451,7 @@ var scientificAnnotation  = {
      * @return void
      */
     hideAnnotationDisplayTable:function(){
-        $('#displayTableTitle').hide();
-        $('#displaySparqlTableRows').hide();
+        scientificAnnotation.DIV_TRIPLES.hide();
     },
 
     /**
@@ -525,13 +459,10 @@ var scientificAnnotation  = {
      * @return void
      */
     fetchDataFromDatabase : function () {
-        var outputTable = $('#displaySparqlTableRows');
-        var displayFileInfoTitle = $('#displayTableTitle');
+        scientificAnnotation.DIV_TRIPLES.fadeIn(500);
         scientificAnnotation.clearSimilarSearchResult();
         scientificAnnotation.showProgressBar('Loading data ....');
         sparql.showDataFromSparql();
-        outputTable.fadeIn(500);
-        displayFileInfoTitle.fadeIn(500);
     },
 
     /**
@@ -553,33 +484,26 @@ var scientificAnnotation  = {
      * @return void
      */
     showSimilarSearchResult:function(){
-        var similarPubsList = $("#similarPubsList");
-        if (similarPubsList.is(':visible')) {
-            similarPubsList.fadeOut(300);
+        if (scientificAnnotation.DIV_RECOMMENDER.is(':visible')) {
+            scientificAnnotation.DIV_RECOMMENDER.fadeOut(300);
         }
-
-        scientificAnnotation.showProgressBar('Finding similar result...');
+        scientificAnnotation.showProgressBar('Finding similar publications...');
         sparql.findSimilarFiles();
-
     },
     
     /**
-     * Display message in given field
-     * @param message
-     * @param element id where to display the results
+     * Display message in given element
+     * @param {String} message
+     * @param {Object} element where to display the message
      * @param optional boolean value to define whether to show message temporarily only.
      * @return void
      */
-    showResults:function(message, displayInElementId, isHide) {
-        var isHide = isHide || false;
-        var elementID = '#'+displayInElementId;
-        var selector = $(elementID);
-        selector.html(message);
-        selector.fadeIn(1000);
+    displayInfo:function(message, displayInElement, isHide) {
+        var isHide = isHide || false; //optional parameter
+        displayInElement.html(message);
+        if (!displayInElement.is(':visible')) displayInElement.fadeIn(1000);
         if(isHide == true) {
-            selector.delay(1500).fadeOut();
-        }else {
-            selector.show();
+            displayInElement.delay(1500).fadeOut();
         }
     },
 
@@ -589,50 +513,38 @@ var scientificAnnotation  = {
      * @return void
      */
     showSuccessMessage:function (message) {
-        var selector = '.alert-success';
-        $(selector).html(message);
-        $(selector).fadeIn(1000);
-        $(selector).delay(1500).fadeOut();
+        scientificAnnotation.displayInfo(message, scientificAnnotation.DIV_SUCCESS, true);
     },
 
     /**
      * Display error message
      * @param message
+     * @param optional boolean value to define whether to show message temporarily only
      * @return void
      */
     showErrorMessage:function (message, isHide) {
-
-        var isHide = isHide || false;
-        var selector = '.alert-danger';
-        $(selector).html(message);
-        $(selector).fadeIn(500);
-        if(isHide == true) {
-            $(selector).delay(1500).fadeOut();
-        }else {
-            $(selector).show();
-        }
+        var isHide = isHide || false; //optional parameter
+        scientificAnnotation.displayInfo(message, scientificAnnotation.DIV_ERROR, isHide);
     },
 
     /**
      * Display warning message
      * @param message
+     * @return void
      */
     showWarningMessage:function (message) {
-        var selector = '.alert-warning';
-        $(selector).html(message);
-        $(selector).fadeIn(500);
-        $(selector).delay(1500).fadeOut();
+        scientificAnnotation.displayInfo(message, scientificAnnotation.DIV_WARN, true);
     },
 
 
     /**
      * Show progress bar
-     * @param message
+     * @param {String} message on progress bar
      * @return void
      */
     showProgressBar: function(message){
-        $('.progress-bar').html(message);
-        $('.progress').fadeIn();
+        scientificAnnotation.DIV_PROGRESS.html(message);
+        scientificAnnotation.BAR_PROGRESS.fadeIn();
     },
 
     /**
@@ -640,11 +552,11 @@ var scientificAnnotation  = {
      * @return void
      */
     hideProgressBar: function(){
-        $('.progress').fadeOut();
+        scientificAnnotation.BAR_PROGRESS.fadeOut();
     },
 
     /**
-     * Checks if active selection is made in PDF. 
+     * Checks if active selection was made in PDF. 
      * @return {Boolean}
      */
     isSelectionInPDF: function(){
@@ -659,7 +571,7 @@ var scientificAnnotation  = {
             node = range.commonAncestorContainer ? range.commonAncestorContainer :
                     range.parentElement ? range.parentElement() : range.item(0);
         }
-        if ($(node).closest('#viewer').length > 0) { //if node exists
+        if ($(node).closest(scientificAnnotation.DIV_VIEWER).length > 0) { //if node exists
             return true;
         } else { 
             return false; //avoids the problem where selection is not made in PDF but mouse released over PDF file. We want to ignore these cases.
@@ -667,16 +579,67 @@ var scientificAnnotation  = {
     },
 
     /**
+     * This sets up event listeners
+     * @return void
+     */
+    bindEventListeners: function(){
+        //An event that is fired by PDF.js when the pdf loads. 
+        window.addEventListener("documentload", function(evt) {
+            //alert("PDF.js event - documentload");
+            highlight.init();
+            sparql.triple.emptyAll();
+            scientificAnnotation.clearAnnotationDisplayPanel();
+            scientificAnnotation.clearSimilarSearchResult();
+            scientificAnnotation.resetAnnotationTable();
+            scientificAnnotation.DIV_SUBJECTS.hide();
+            scientificAnnotation.DIV_OBJECTS.hide();
+        }, false);
+        
+        //An event that is fired by PDF.js when the pdf.js loads
+        window.addEventListener("DOMContentLoaded", function(evt) {
+            //alert("PDF.js event - DOMContentLoaded");
+            //console.log(evt);
+        }, false);
+        
+    },
+    
+    /**
      * Initialize the document
      *
      * @return void
      */
     init:function(){
+        //UI
+        scientificAnnotation.BTN_PANEL = $("#simpleAnnotateButton");
+        scientificAnnotation.BTN_ADD = $("#addAnnotationButton");
+        scientificAnnotation.BTN_RECOMMENDER = $("#showSimilarSearchButton");
+        scientificAnnotation.BTN_ANNOTATIONS = $("#queryButton");
+        scientificAnnotation.BTN_TABLE = $("#annotateTableButton");
+        scientificAnnotation.BTN_SELECT_TEXT = $("#objectTextSelection");
+        scientificAnnotation.INPUT_SUBJECT = $("#subjectValueInput");
+        scientificAnnotation.INPUT_PROPERTY = $("#propertyValueInput");
+        scientificAnnotation.INPUT_OBJECT = $("#objectValueInput");
+        scientificAnnotation.DIV_VIEWER = $("#viewer");
+        scientificAnnotation.DIV_ANNOTATIONS = $("#simpleAnnotatePanel");
+        scientificAnnotation.DIV_ADDED = $("#displayAnnotationResult");
+        scientificAnnotation.DIV_SUBJECTS = $("#displaySubjectURI");
+        scientificAnnotation.DIV_PROPERTIES = $("#propertyCount");
+        scientificAnnotation.DIV_OBJECTS = $("#displayObjectURI");
+        scientificAnnotation.DIV_RECOMMENDER = $("#similarPubsList");
+        scientificAnnotation.DIV_TRIPLES = $("#displayTriples");
+        scientificAnnotation.DIV_PROGRESS = $(".progress-bar");
+        scientificAnnotation.DIV_SUCCESS = $(".alert-success");
+        scientificAnnotation.DIV_ERROR = $(".alert-danger");
+        scientificAnnotation.DIV_WARN = $(".alert-warning");
+        scientificAnnotation.BAR_PROGRESS = $(".progress");
+
         scientificAnnotation.bindClickEventForButtons();
         scientificAnnotation.bindEventForInputs();
+        scientificAnnotation.bindEventListeners();
         scientificAnnotation.bindMouseUpEventForPDFViewer();
-        sparql.bindAutoCompleteProperty(null, null);
+        sparql.bindAutoCompleteProperty();
         //sparql.bindAutoCompleteObject();
+        
     }
 };
 
@@ -685,5 +648,5 @@ var scientificAnnotation  = {
  */
 $(function () {
     scientificAnnotation.init();
-    highlight.init();
+    test.init(); //functionality related to jaana developing. Remove this from production.
 });
